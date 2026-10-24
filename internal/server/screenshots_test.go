@@ -129,6 +129,18 @@ func shoot(t *testing.T, url, name string, height int) {
 	t.Logf("wrote %s", out)
 }
 
+// crop cuts a band out of a screenshot for the landing page's steps
+// (sips ships with macOS). y and h are in image pixels.
+func crop(t *testing.T, from, to string, y, h int) {
+	t.Helper()
+	dir := filepath.Join("..", "..", "docs", "img")
+	cmd := exec.Command("sips", "-c", fmt.Sprint(h), "1720", "--cropOffset", fmt.Sprint(y), "0",
+		filepath.Join(dir, from+".png"), "--out", filepath.Join(dir, to+".png"))
+	if b, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("sips: %v\n%s", err, b)
+	}
+}
+
 func waitStatus(t *testing.T, st *store.Store, status string) {
 	t.Helper()
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
@@ -163,6 +175,7 @@ func TestScreenshots(t *testing.T) {
 		url := serve(t, st, slowReader{ready}, true)
 		waitStatus(t, st, store.Reading)
 		shoot(t, url, "reading", 1500)
+		crop(t, "reading", "step-drop", 1852, 895)
 	})
 
 	t.Run("week", func(t *testing.T) {
@@ -175,5 +188,6 @@ func TestScreenshots(t *testing.T) {
 		st, _ := store.Open(dir)
 		seed(t, st, files, store.Done, shotDay.Add(-time.Hour))
 		shoot(t, serve(t, st, slowReader{ready}, false), "week", 1800)
+		crop(t, "week", "step-todo", 2240, 1230)
 	})
 }

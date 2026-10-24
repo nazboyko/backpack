@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backpack: photograph the pile, get the week</title>
+<meta name="description" content="Backpack reads photos of the papers that come home from school with Gemma 4 on your own laptop and gives you the week: dates, to-dos and what you can throw away.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --paper: #faf7f1; --ink: #1f1d1a; --muted: #6b655c; --line: #e6dfd3;
+    --card: #ffffff; --accent: #2f6f5e; --accent-dark: #275b4d; --soft: #f1ece3;
+    --warn: #9a5214; --focus: #6fae98;
+    --shadow: 0 1px 2px rgba(31, 29, 26, .06), 0 10px 30px rgba(31, 29, 26, .08);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  ::selection { background: #cfe3db; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  .skip { position: absolute; left: -999px; top: 8px; background: var(--card); padding: 8px 12px; }
+  .skip:focus { left: 8px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  .narrow { max-width: 680px; }
+
+  header.top { display: flex; align-items: center; gap: 10px; padding: 22px 0; }
+  header.top img { width: 28px; height: 28px; }
+  header.top span { font-weight: 700; font-size: 19px; }
+  header.top a { margin-left: auto; color: var(--ink); font-size: 15px; }
+
+  .hero { padding: 48px 0 32px; }
+  .hero h1 { font-size: clamp(36px, 6vw, 60px); line-height: 1.05; letter-spacing: -.02em; margin: 0 0 18px; max-width: 14ch; }
+  .hero p { font-size: 20px; color: var(--muted); max-width: 40ch; margin: 0 0 28px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .button {
+    display: inline-block; padding: 12px 20px; border-radius: 12px; text-decoration: none;
+    font-weight: 600; font-size: 16px; border: 1px solid var(--line); color: var(--ink); background: var(--card);
+  }
+  .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .button.primary:hover { background: var(--accent-dark); }
+  .button:not(.primary):hover { background: var(--soft); }
+
+  .shot {
+    margin: 40px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .shot .bar { height: 34px; background: var(--soft); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 7px; padding: 0 14px; }
+  .shot .bar i { width: 11px; height: 11px; border-radius: 50%; background: #ddd3c3; }
+  .shot .bar small { margin-left: 10px; color: var(--muted); font-size: 13px; }
+  .shot img { display: block; width: 100%; height: min(760px, 120vw); object-fit: cover; object-position: top; }
+  figcaption { color: var(--muted); font-size: 15px; padding: 10px 2px 0; }
+
+  section { padding: 64px 0 8px; }
+  h2 { font-size: 30px; letter-spacing: -.01em; margin: 0 0 14px; line-height: 1.2; }
+  .lead { color: var(--muted); font-size: 18px; margin: 0 0 28px; max-width: 60ch; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; counter-reset: step; }
+  .steps li { list-style: none; }
+  .steps h3 { font-size: 18px; margin: 14px 0 6px; }
+  .steps h3::before { counter-increment: step; content: counter(step) ". "; color: var(--accent); }
+  .steps p { margin: 0; color: var(--muted); font-size: 16px; }
+  .steps img { width: 100%; height: 260px; object-fit: cover; object-position: top; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--card); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 16px; background: var(--card); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+  th, td { text-align: left; padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { width: 34%; font-weight: 600; }
+  tr:first-child th, tr:first-child td { border-top: 0; }
+  code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--soft); border-radius: 6px; padding: 1px 6px; }
+  pre code { font: inherit; background: none; padding: 0; color: inherit; }
+
+  .numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 0 0 18px; }
+  .numbers div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .numbers b { display: block; font-size: 32px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .numbers span { color: var(--muted); font-size: 15px; }
+  .note { color: var(--muted); font-size: 16px; max-width: 64ch; }
+
+  pre {
+    background: #23211e; color: #f4efe6; border-radius: 14px; padding: 18px 20px; overflow-x: auto;
+    font: 15px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0 0 14px;
+  }
+  footer { padding: 72px 0 48px; color: var(--muted); font-size: 15px; }
+  footer p { margin: 4px 0; }
+
+  @media (max-width: 760px) {
+    .steps, .numbers { grid-template-columns: 1fr; }
+    .steps img { height: auto; }
+    th { width: auto; display: block; border-bottom: 0; padding-bottom: 0; }
+    td { display: block; border-top: 0; padding-top: 2px; }
+    .hero { padding-top: 24px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the page</a>
+<div class="wrap">
+  <header class="top">
+    <img src="icon.svg" alt="">
+    <span>Backpack</span>
+    <a href="https://github.com/nazboyko/backpack">Code on GitHub</a>
+  </header>
+</div>
+
+<main id="main">
+  <div class="wrap">
+    <div class="hero">
+      <h1>Photograph the pile, get the week.</h1>
+      <p>Backpack reads the papers that come home from school with an open model on your own laptop. You get the dates, the to-dos, and the papers you can throw away.</p>
+      <div class="actions">
+        <a class="button primary" href="https://github.com/nazboyko/backpack#install">Install Backpack</a>
+        <a class="button" href="#how">See how it works</a>
+      </div>
+      <figure class="shot">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i><small>127.0.0.1:7313</small></div>
+        <img src="img/week.png" width="1720" height="3600" alt="The Backpack page after reading ten school papers: 14 dates from spirit week to parent-teacher conferences with a Download calendar button, then 11 open to-dos such as sign and return the slip by Friday, Oct 30.">
+      </figure>
+      <figcaption>Ten invented school papers, read by gemma4:e4b on a laptop. Nothing on this screen came from a cloud service.</figcaption>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <p class="lead">Three steps, no account, no settings.</p>
+      <ol class="steps">
+        <li>
+          <img src="img/step-drop.png" alt="Papers being read one at a time: one card says Reading, about 10 seconds on this laptop; another waits its turn; one could not be read and offers Read again." loading="lazy">
+          <h3>Drop the photos</h3>
+          <p>Photograph each paper and drop the photos on the page. Each one takes a few seconds to read.</p>
+        </li>
+        <li>
+          <img src="img/edit-date.png" alt="The list of dates with one date open for editing in a date field." loading="lazy">
+          <h3>Check the guesses</h3>
+          <p>A date the model had to work out is underlined and marked "check". Click any date or title to fix it.</p>
+        </li>
+        <li>
+          <img src="img/step-todo.png" alt="Eleven open to-dos, each with its due date; the ones the model had to work out are underlined and marked check." loading="lazy">
+          <h3>Take the week</h3>
+          <p>One button puts every date in your calendar. Tick the to-dos. Papers that need nothing fold into one line.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap narrow">
+      <h2>Your child's papers stay home</h2>
+      <p class="lead">The photos carry your child's name, school, teacher and sometimes your address. Backpack keeps all of it on your computer.</p>
+      <table>
+        <tr><th scope="row">The page</th><td><code>127.0.0.1:7313</code>, which only this computer can open</td></tr>
+        <tr><th scope="row">Your photos</th><td>A folder on your disk; delete a paper and its photo goes too</td></tr>
+        <tr><th scope="row">The model</th><td>Gemma 4 in Ollama, on this computer</td></tr>
+        <tr><th scope="row">Anything else</th><td>Nothing: no account, no analytics, no update check</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap narrow">
+      <h2>Measured, not promised</h2>
+      <p class="lead">Ten invented papers, gemma4:e4b, an Apple M5 Max laptop.</p>
+      <div class="numbers">
+        <div><b>13 of 13</b><span>dates found</span></div>
+        <div><b>8 of 10</b><span>to-dos found</span></div>
+        <div><b>24 s</b><span>for all ten, model cold</span></div>
+      </div>
+      <p class="note">It missed "pack a sack lunch" and "send a little money". The larger gemma4:26b found all ten to-dos at about 3.6 seconds a paper. Handwriting and faint copies are harder, which is why every guess is marked for you to check.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap narrow">
+      <h2>Install</h2>
+      <p class="lead">On a Mac with Homebrew. The model download is about 7 GB, once.</p>
+      <pre><code>brew install go ollama &amp;&amp; brew services start ollama
+ollama pull gemma4:e4b
+go install github.com/nazboyko/backpack/cmd/backpack@latest
+~/go/bin/backpack</code></pre>
+      <p class="note">The last command opens the page. The <a href="https://github.com/nazboyko/backpack">README</a> covers Linux, other models and the flags.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Backpack is MIT licensed. Built for the DEV Hacktoberfest Open-Source AI Challenge, Week 3, October 2026.</p>
+    <p><a href="https://github.com/nazboyko/backpack">github.com/nazboyko/backpack</a></p>
+  </div>
+</footer>
+</body>
+</html>
