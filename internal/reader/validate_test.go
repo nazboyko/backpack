@@ -36,6 +36,8 @@ func TestValidateDates(t *testing.T) {
 		{"us slashes", "11/5", "2026-11-05", Guessed, "11/5"},
 		{"us with year", "11/12/2026", "2026-11-12", Guessed, "11/12/2026"},
 		{"ordinal", "November 9th", "2026-11-09", Guessed, "November 9th"},
+		{"september", "September 14", "2026-09-14", Guessed, "September 14"}, // six weeks ago is nearer than next year
+		{"sept short", "Sept. 3, 2026", "2026-09-03", Guessed, "Sept. 3, 2026"},
 		{"early next year", "January 8", "2027-01-08", Guessed, "January 8"},
 		{"nonsense", "sometime soon", "", Guessed, "sometime soon"},
 		{"bad iso", "2026-13-40", "", Guessed, "2026-13-40"},
@@ -123,6 +125,7 @@ func TestValidateTimes(t *testing.T) {
 		{"pm range", "5:00 PM", "7:00 PM", "17:00", "19:00", Read},
 		{"range in one field", "5-7 PM", "", "17:00", "19:00", Read},
 		{"range with to", "3:30 to 7:00 PM", "", "15:30", "19:00", Read},
+		{"noon range", "noon to 1 PM", "", "12:00", "13:00", Read},
 		{"end before start", "17:00", "16:00", "17:00", "", Read},
 		{"end without start", "", "19:00", "", "", Read},
 		{"bad start", "after school", "", "", "", Guessed},

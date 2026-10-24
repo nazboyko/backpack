@@ -282,9 +282,14 @@ func parseDate(s string, now time.Time) (date string, exact bool) {
 	}
 
 	t := strings.ToLower(s)
-	t = strings.NewReplacer(",", " ", ".", " ", "sept", "sep").Replace(t)
+	t = strings.NewReplacer(",", " ", ".", " ").Replace(t)
 	t = ordinalRe.ReplaceAllString(t, "$1")
 	f := strings.Fields(t)
+	for i := range f {
+		if f[i] == "sept" {
+			f[i] = "sep"
+		}
+	}
 	if len(f) > 0 && (f[0] == "this" || f[0] == "next" || f[0] == "on" || f[0] == "by") {
 		f = f[1:]
 	}
@@ -379,7 +384,10 @@ func normTime(s string) (hhmm string, ok, guessed bool) {
 	return fmt.Sprintf("%02d:%02d", h, min), true, guessed
 }
 
-var rangeRe = regexp.MustCompile(`^(.+?)\s*(?:-|–|—|to|until)\s*(.+)$`)
+var (
+	rangeRe    = regexp.MustCompile(`^(.+?)\s*(?:-|–|—|to|until)\s*(.+)$`)
+	bareTimeRe = regexp.MustCompile(`^\d{1,2}(:\d{2})?$`)
+)
 
 // splitRange splits "5-7 PM" into "5 PM" and "7 PM". Anything that is not
 // a range comes back as the start.
@@ -390,7 +398,7 @@ func splitRange(s string) (start, end string) {
 	}
 	start, end = strings.TrimSpace(m[1]), strings.TrimSpace(m[2])
 	low := strings.ToLower(end)
-	if !strings.ContainsAny(strings.ToLower(start), "ap") {
+	if bareTimeRe.MatchString(start) {
 		for _, suf := range []string{"am", "pm", "a.m.", "p.m."} {
 			if strings.HasSuffix(low, suf) {
 				start += " " + suf
