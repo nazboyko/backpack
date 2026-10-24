@@ -4,8 +4,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Backpack</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
 </head>
 <body>
-<h1>Backpack</h1>
+<div class="wrap">
+  <div id="banner" class="banner" role="alert" hidden></div>
+
+  <header>
+    <h1>Backpack</h1>
+    <span class="week" id="week-label"></span>
+  </header>
+
+  <section id="drop" class="drop" aria-label="Add photos">
+    <strong>Drop photos of anything that came home.</strong><br>
+    Backpack reads them on this laptop and pulls out the dates and the to-dos.
+    <div><button type="button" class="choose" id="choose">Choose photos…</button></div>
+    <input type="file" id="file" multiple hidden
+           accept="image/jpeg,image/png,image/heic,image/heif,.jpg,.jpeg,.png,.heic,.heif">
+    <p class="first" id="first" hidden>Nothing yet. Drop the first photo.</p>
+    <ul class="problems" id="problems"></ul>
+  </section>
+  <p class="status-line" id="status" role="status" aria-live="polite"></p>
+
+  <main id="main"></main>
+</div>
+
+<span id="edit-hint" class="visually-hidden">Press to change.</span>
+<template id="calendar-icon">
+  <svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+    <rect x="1.5" y="2.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M1.5 6.5h13M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+</template>
 </body>
 </html>

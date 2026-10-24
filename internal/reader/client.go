@@ -22,7 +22,7 @@ const (
 const (
 	ErrOllamaDown   Problem = "Backpack can't reach the model. Start Ollama with: ollama serve"
 	ErrTooSlow      Problem = "Reading this photo took too long. Try again, or take a closer photo."
-	ErrUnreadable   Problem = "Couldn't read this one. Try a brighter photo, or read it yourself."
+	ErrUnreadable   Problem = "The photo may be too dark or blurry. Try a brighter shot, or read it yourself."
 	ErrModelStopped Problem = "The model stopped with an error. Try reading it again."
 )
 
