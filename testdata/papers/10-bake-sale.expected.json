@@ -1,0 +1,13 @@
+{
+  "title": "PTO bake sale",
+  "summary": "Bake sale at lunch on Friday, Nov 6; the class needs 2 dozen cookies.",
+  "kind": "flyer",
+  "nothing_to_do": false,
+  "events": [
+    {"title": "PTO bake sale", "date": "2026-11-06", "location": "Cafeteria", "date_confidence": "read"}
+  ],
+  "actions": [
+    {"text": "Bring 2 dozen cookies to the office before 8:30 AM", "kind": "bring", "due": "2026-11-06", "date_confidence": "read", "match": ["cookie", "baked", "treat", "dozen"]},
+    {"text": "Send a little money for a snack", "kind": "pay", "due": "2026-11-06", "date_confidence": "read", "match": ["money", "coins", "cash"]}
+  ]
+}

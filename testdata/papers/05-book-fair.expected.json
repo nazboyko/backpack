@@ -1,0 +1,13 @@
+{
+  "title": "Fall book fair",
+  "summary": "Book fair in the library Nov 9 and 10, family night Tuesday 5 to 7 PM.",
+  "kind": "flyer",
+  "nothing_to_do": false,
+  "events": [
+    {"title": "Book fair", "date": "2026-11-09", "end_date": "2026-11-10", "location": "School library", "date_confidence": "read"},
+    {"title": "Book fair family night", "date": "2026-11-10", "start_time": "17:00", "end_time": "19:00", "location": "School library", "date_confidence": "read"}
+  ],
+  "actions": [
+    {"text": "Send book money in an envelope with name and teacher", "kind": "pay", "due": "2026-11-09", "date_confidence": "read", "match": ["money", "envelope"]}
+  ]
+}

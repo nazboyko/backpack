@@ -1,0 +1,10 @@
+{
+  "title": "Reading log",
+  "summary": "Read 20 minutes each night; sign the log and send it back Friday.",
+  "kind": "homework",
+  "nothing_to_do": false,
+  "events": [],
+  "actions": [
+    {"text": "Sign the reading log and send it back", "kind": "sign", "due": "2026-10-30", "date_confidence": "guessed", "match": ["log", "sign"]}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "title": "PTO pizza night",
+  "summary": "Pizza night fundraiser at Luigi's Pizzeria on Thursday, Nov 5, 5 to 7 PM.",
+  "kind": "flyer",
+  "nothing_to_do": false,
+  "events": [
+    {"title": "PTO pizza night", "date": "2026-11-05", "start_time": "17:00", "end_time": "19:00", "location": "Luigi's Pizzeria, 214 Main Street", "date_confidence": "read"}
+  ],
+  "actions": []
+}

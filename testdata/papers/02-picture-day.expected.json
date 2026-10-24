@@ -1,0 +1,12 @@
+{
+  "title": "Picture day",
+  "summary": "School photos on Tuesday, Nov 3; order online with code MGF26 before then.",
+  "kind": "flyer",
+  "nothing_to_do": false,
+  "events": [
+    {"title": "Picture day", "date": "2026-11-03", "date_confidence": "read"}
+  ],
+  "actions": [
+    {"text": "Order photos online with code MGF26", "kind": "pay", "due": "2026-11-03", "date_confidence": "read", "match": ["order"]}
+  ]
+}

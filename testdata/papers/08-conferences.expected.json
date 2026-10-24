@@ -1,0 +1,12 @@
+{
+  "title": "Parent-teacher conferences",
+  "summary": "Conferences Thursday, Nov 12, 3:30 to 7 PM; return the time form by Nov 6.",
+  "kind": "form",
+  "nothing_to_do": false,
+  "events": [
+    {"title": "Parent-teacher conference", "date": "2026-11-12", "start_time": "15:30", "end_time": "19:00", "location": "Room 14", "date_confidence": "read"}
+  ],
+  "actions": [
+    {"text": "Return the conference time form", "kind": "rsvp", "due": "2026-11-06", "date_confidence": "read", "match": ["form", "time", "sign up", "sign-up", "choose", "choice"]}
+  ]
+}

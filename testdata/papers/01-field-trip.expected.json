@@ -1,0 +1,14 @@
+{
+  "title": "Field trip permission slip",
+  "summary": "Trip to the science museum on Nov 4; signed slip and $8 due Friday, Oct 30.",
+  "kind": "form",
+  "nothing_to_do": false,
+  "events": [
+    {"title": "Field trip to Riverside Science Museum", "date": "2026-11-04", "start_time": "09:00", "end_time": "14:15", "location": "Riverside Science Museum", "date_confidence": "read"}
+  ],
+  "actions": [
+    {"text": "Sign and return the permission slip", "kind": "sign", "due": "2026-10-30", "date_confidence": "read", "match": ["slip", "sign"]},
+    {"text": "Send $8 for the trip", "kind": "pay", "due": "2026-10-30", "date_confidence": "read", "match": ["$8", "8 dollars", "pay", "fee", "cost"]},
+    {"text": "Pack a sack lunch and a drink", "kind": "bring", "due": "2026-11-04", "date_confidence": "read", "match": ["lunch"]}
+  ]
+}

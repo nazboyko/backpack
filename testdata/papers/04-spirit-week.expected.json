@@ -1,0 +1,14 @@
+{
+  "title": "Spirit week",
+  "summary": "A themed dress-up day every day from Oct 26 to Oct 30.",
+  "kind": "calendar",
+  "nothing_to_do": false,
+  "events": [
+    {"title": "Pajama Day", "date": "2026-10-26", "date_confidence": "read"},
+    {"title": "Crazy Hair Day", "date": "2026-10-27", "date_confidence": "read"},
+    {"title": "Twin Day", "date": "2026-10-28", "date_confidence": "read"},
+    {"title": "Sports Jersey Day", "date": "2026-10-29", "date_confidence": "read"},
+    {"title": "Orange and Black Day", "date": "2026-10-30", "date_confidence": "read"}
+  ],
+  "actions": []
+}

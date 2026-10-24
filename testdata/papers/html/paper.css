@@ -1,0 +1,27 @@
+/* Makes a printed page look like a phone photo of a paper on a table. */
+html, body { margin: 0; width: 1200px; height: 1600px; overflow: hidden; }
+body {
+  background: radial-gradient(ellipse at 35% 25%, #9a9184 0%, #7a7266 55%, #5f584e 100%);
+  font-family: Helvetica, Arial, sans-serif;
+  color: #1d1d1d;
+}
+.paper {
+  position: absolute; left: 50px; top: 88px;
+  width: 1100px; height: 1424px; box-sizing: border-box;
+  padding: 84px 96px; background: #fcfbf6;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .38);
+  transform: rotate(var(--tilt, 1deg));
+  font-size: 24px; line-height: 1.45;
+  overflow: hidden;
+}
+.light {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(118deg, rgba(255, 248, 230, .20) 0%, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, .16) 100%);
+}
+.letterhead { border-bottom: 3px solid #333; padding-bottom: 14px; margin-bottom: 30px; }
+.letterhead .school { font-size: 34px; font-weight: bold; letter-spacing: .02em; }
+.letterhead .addr { font-size: 20px; color: #444; }
+h1 { margin: 0 0 18px; }
+.cut { border-top: 3px dashed #555; margin: 46px 0 22px; padding-top: 6px; font-size: 18px; color: #555; text-align: center; }
+.line { display: inline-block; border-bottom: 2px solid #333; min-width: 340px; height: 30px; vertical-align: bottom; }
+.hand { font-family: "Bradley Hand", "Noteworthy", "Marker Felt", cursive; color: #1d3a8a; }

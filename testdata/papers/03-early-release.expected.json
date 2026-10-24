@@ -1,0 +1,12 @@
+{
+  "title": "Early release day",
+  "summary": "Students go home at 12:30 PM on Thursday, Oct 29; clubs are cancelled.",
+  "kind": "notice",
+  "nothing_to_do": false,
+  "events": [
+    {"title": "Early release, dismissal at 12:30 PM", "date": "2026-10-29", "start_time": "12:30", "date_confidence": "read"}
+  ],
+  "actions": [
+    {"text": "Arrange pick-up at 12:30 PM", "kind": "other", "due": "2026-10-29", "date_confidence": "read", "match": ["pick"]}
+  ]
+}
