@@ -333,3 +333,14 @@ func TestValidateJoinsNextDayIntoRange(t *testing.T) {
 		t.Fatalf("not joined: %+v", e)
 	}
 }
+
+func TestValidateJoinsThreeDays(t *testing.T) {
+	r := Validate(Reading{Title: "Fair", Events: []Event{
+		{Title: "Fair", Date: "2026-11-09", Confidence: Read},
+		{Title: "Fair", Date: "2026-11-10", Confidence: Read},
+		{Title: "Fair", Date: "2026-11-11", Confidence: Read},
+	}}, monday)
+	if len(r.Events) != 1 || r.Events[0].EndDate != "2026-11-11" {
+		t.Fatalf("events %+v", r.Events)
+	}
+}
