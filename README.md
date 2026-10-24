@@ -97,7 +97,7 @@ Everything else is the Go standard library.
 ## Contest
 
 Built for the DEV Hacktoberfest Open-Source AI Challenge, Week 3 "Slow and
-Steady", October 2026. The post: [HUMAN: link to the published DEV post].
+Steady", October 2026. The post: [A Local AI Reads My Kid's School Papers So I Don't Have To](https://dev.to/nazar-boyko/a-local-ai-reads-my-kids-school-papers-so-i-dont-have-to-2knk).
 
 ## License
 
