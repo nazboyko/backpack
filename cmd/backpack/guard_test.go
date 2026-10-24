@@ -58,6 +58,7 @@ func checkHosts(t *testing.T, path string) {
 			host, rest := m[1], m[2]
 			switch {
 			case host == "127.0.0.1", host == "localhost":
+			case strings.HasSuffix(host, ".example"): // reserved name, never resolves (RFC 2606)
 			case host == "github.com" && strings.HasPrefix(rest, "/nazboyko/backpack"):
 			case host == "ollama.com" && isComment(line, m[0]):
 			default:
