@@ -86,11 +86,19 @@ func checkEvent(e Event, paperTitle string, now time.Time) (Event, bool) {
 	default:
 		e.Date = date
 	}
+	shift := 0
+	if fixed, years := wrongYear(e.Date, now); years != 0 {
+		e.Date, e.Raw, e.Confidence, shift = fixed, raw, Guessed, years
+	}
 	if e.Date != "" && tooFar(e.Date, now) {
 		e.Confidence = Guessed
 	}
 
-	if end, _ := parseDate(clip(e.EndDate, maxTitle), now); end != "" && e.Date != "" && end > e.Date {
+	end, _ := parseDate(clip(e.EndDate, maxTitle), now)
+	if end != "" && shift != 0 {
+		end = addYears(end, shift)
+	}
+	if end != "" && e.Date != "" && end > e.Date {
 		e.EndDate = end
 	} else {
 		e.EndDate = ""
@@ -101,7 +109,11 @@ func checkEvent(e Event, paperTitle string, now time.Time) (Event, bool) {
 		e.StartTime, e.EndTime = splitRange(e.StartTime)
 	}
 	start, okStart, guessStart := normTime(e.StartTime)
-	end, okEnd, guessEnd := normTime(e.EndTime)
+	endTime, okEnd, guessEnd := normTime(e.EndTime)
+	if start == "00:00" && (!okEnd || endTime == "00:00") {
+		okStart, okEnd = false, false // a model's way of saying "no time"; nothing at school starts at midnight
+		e.StartTime = ""
+	}
 	if strings.TrimSpace(e.StartTime) != "" && !okStart {
 		e.Confidence = Guessed // a time was there and made no sense
 	}
@@ -112,8 +124,8 @@ func checkEvent(e Event, paperTitle string, now time.Time) (Event, bool) {
 	if okStart {
 		e.StartTime = start
 		// An end time before the start only makes sense on a later day.
-		if okEnd && (end > start || e.EndDate != "") {
-			e.EndTime = end
+		if okEnd && (endTime > start || e.EndDate != "") {
+			e.EndTime = endTime
 		}
 	}
 	return e, true
@@ -146,6 +158,9 @@ func checkAction(a Action, now time.Time) (Action, bool) {
 	default:
 		a.Due = due
 	}
+	if fixed, years := wrongYear(a.Due, now); years != 0 {
+		a.Due, a.Raw, a.Confidence = fixed, raw, Guessed
+	}
 	if a.Due != "" && tooFar(a.Due, now) {
 		a.Confidence = Guessed
 	}
@@ -154,10 +169,18 @@ func checkAction(a Action, now time.Time) (Action, bool) {
 
 // addEvent appends e unless it repeats an event already in the list (same
 // day, same start time, the same title or one title inside the other); a
-// repeat only fills in what the first one was missing.
+// repeat only fills in what the first one was missing. An all-day event
+// with the same title on the next day makes the first one a range.
 func addEvent(list []Event, e Event) []Event {
 	for i := range list {
 		f := &list[i]
+		if nextDay(f, &e) {
+			f.EndDate = e.Date
+			if e.Confidence == Guessed {
+				f.Confidence = Guessed
+			}
+			return list
+		}
 		if f.Date != e.Date || f.Date == "" || !sameEvent(f, &e) {
 			continue
 		}
@@ -178,6 +201,23 @@ func addEvent(list []Event, e Event) []Event {
 		return list
 	}
 	return append(list, e)
+}
+
+// nextDay reports whether b is a's all-day event continued on the day
+// after a ends ("Book fair" Monday, "Book fair" Tuesday).
+func nextDay(a, b *Event) bool {
+	if a.Date == "" || b.Date == "" || a.StartTime != "" || b.StartTime != "" || b.EndDate != "" {
+		return false
+	}
+	last := a.Date
+	if a.EndDate != "" {
+		last = a.EndDate
+	}
+	d, err := time.Parse(isoDate, last)
+	if err != nil || d.AddDate(0, 0, 1).Format(isoDate) != b.Date {
+		return false
+	}
+	return strings.Join(words(a.Title), " ") == strings.Join(words(b.Title), " ")
 }
 
 func sameEvent(a, b *Event) bool {
@@ -253,6 +293,28 @@ func tooFar(date string, now time.Time) bool {
 	}
 	today := midnight(now)
 	return d.After(today.AddDate(0, 18, 0)) || d.Before(today.AddDate(0, -18, 0))
+}
+
+// wrongYear catches a date that lies more than six months back, the usual
+// sign of a year the model made up for a paper that printed none. It
+// returns the same day in the year nearest to today and how many years it
+// moved; 0 means the date stays.
+func wrongYear(date string, now time.Time) (string, int) {
+	d, err := time.ParseInLocation(isoDate, date, now.Location())
+	today := midnight(now)
+	if err != nil || !d.Before(today.AddDate(0, -6, 0)) {
+		return date, 0
+	}
+	c := closestYear(d, today)
+	return c.Format(isoDate), c.Year() - d.Year()
+}
+
+func addYears(date string, years int) string {
+	d, err := time.Parse(isoDate, date)
+	if err != nil {
+		return date
+	}
+	return d.AddDate(years, 0, 0).Format(isoDate)
 }
 
 func midnight(t time.Time) time.Time {
@@ -347,7 +409,7 @@ var timeRe = regexp.MustCompile(`^(\d{1,2})(?::(\d{2}))?(am|pm|a|p)?$`)
 
 // normTime turns "3 pm", "3:30PM" or "15:30" into "15:30". guessed is set
 // for a bare afternoon hour like "3:30", read as PM because school does not
-// happen at 3:30 in the night.
+// happen at 3:30 in the night; a zero-padded "03:30" is taken as written.
 func normTime(s string) (hhmm string, ok, guessed bool) {
 	t := strings.ToLower(strings.TrimSpace(s))
 	t = strings.NewReplacer(" ", "", ".", "", "o'clock", "").Replace(t)
@@ -384,7 +446,7 @@ func normTime(s string) (hhmm string, ok, guessed bool) {
 		return "", false, false // a bare number is not a time
 	case h > 23:
 		return "", false, false
-	case h >= 1 && h <= 6:
+	case h >= 1 && h <= 6 && len(m[1]) == 1: // "3:30", not "03:30"
 		h += 12
 		guessed = true
 	}

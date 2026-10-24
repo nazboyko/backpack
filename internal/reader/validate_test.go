@@ -42,7 +42,9 @@ func TestValidateDates(t *testing.T) {
 		{"nonsense", "sometime soon", "", Guessed, "sometime soon"},
 		{"bad iso", "2026-13-40", "", Guessed, "2026-13-40"},
 		{"far future", "2029-05-01", "2029-05-01", Guessed, ""},
-		{"far past", "2024-01-10", "2024-01-10", Guessed, ""},
+		{"made-up year", "2024-11-05", "2026-11-05", Guessed, "2024-11-05"},
+		{"far past", "2024-01-10", "2027-01-10", Guessed, "2024-01-10"},
+		{"recent past stays", "2026-06-01", "2026-06-01", Read, ""},
 	}
 	for _, c := range cases {
 		r := Validate(Reading{Title: "Paper", Events: []Event{{Title: "x", Date: c.date, Confidence: Read}}}, monday)
@@ -103,6 +105,7 @@ func TestNormTime(t *testing.T) {
 		{"15:00", "15:00", true, false},
 		{"noon", "12:00", true, false},
 		{"3:30", "15:30", true, true},
+		{"03:30", "03:30", true, false},
 		{"25:00", "", false, false},
 		{"7:60", "", false, false},
 		{"13 pm", "", false, false},
@@ -288,5 +291,45 @@ func TestValidateDropsModelIDs(t *testing.T) {
 		Actions: []Action{{ID: "y", Text: "b", Kind: "other"}}}, monday)
 	if r.Events[0].ID != "" || r.Actions[0].ID != "" {
 		t.Fatal("ids come from Backpack, not from the model")
+	}
+}
+
+func TestValidateMovesWrongYearRangeTogether(t *testing.T) {
+	r := Validate(Reading{Title: "Fair", Events: []Event{{Title: "Book fair", Date: "2025-11-09", EndDate: "2025-11-10", Confidence: Read}},
+		Actions: []Action{{Text: "Send money", Kind: "pay", Due: "2024-11-09", Confidence: Read}}}, monday)
+	e, a := r.Events[0], r.Actions[0]
+	if e.Date != "2026-11-09" || e.EndDate != "2026-11-10" || e.Confidence != Guessed {
+		t.Fatalf("event %+v", e)
+	}
+	if a.Due != "2026-11-09" || a.Confidence != Guessed || a.Raw != "2024-11-09" {
+		t.Fatalf("action %+v", a)
+	}
+}
+
+func TestValidateMidnightMeansNoTime(t *testing.T) {
+	r := Validate(Reading{Title: "P", Events: []Event{
+		{Title: "Picture day", Date: "2026-11-03", StartTime: "00:00", Confidence: Read},
+		{Title: "Lock-in", Date: "2026-11-04", StartTime: "00:00", EndTime: "06:00", Confidence: Read},
+	}}, monday)
+	if e := r.Events[0]; e.StartTime != "" || e.Confidence != Read {
+		t.Fatalf("all-day event got a time: %+v", e)
+	}
+	if e := r.Events[1]; e.StartTime != "00:00" || e.EndTime != "06:00" {
+		t.Fatalf("a real midnight start was dropped: %+v", e)
+	}
+}
+
+func TestValidateJoinsNextDayIntoRange(t *testing.T) {
+	r := Validate(Reading{Title: "Book fair", Events: []Event{
+		{Title: "Book Fair", Date: "2026-11-09", Confidence: Read},
+		{Title: "Book fair", Date: "2026-11-10", Confidence: Read},
+		{Title: "Family night", Date: "2026-11-10", StartTime: "17:00", Confidence: Read},
+		{Title: "Book fair", Date: "2026-11-12", Confidence: Read}, // a gap: stays apart
+	}}, monday)
+	if len(r.Events) != 3 {
+		t.Fatalf("events %+v", r.Events)
+	}
+	if e := r.Events[0]; e.Date != "2026-11-09" || e.EndDate != "2026-11-10" {
+		t.Fatalf("not joined: %+v", e)
 	}
 }

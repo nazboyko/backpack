@@ -59,9 +59,18 @@ type Action struct {
 	Done       bool   `json:"done,omitempty"`
 }
 
-const promptText = `You are reading a photo of one paper that came home from school.
+const promptText = `You are reading a photo of one paper that came home from school. A busy parent wants to know what goes in the calendar and what they have to do.
 Today is %s. The school year is %s.
-Extract what a busy parent must know. Resolve relative dates ("this Friday", "next week") against today and return ISO dates (YYYY-MM-DD). If a date has no year, assume the one that is in the future and closest. If you cannot read a date with confidence, set date_confidence to "guessed". Do not invent dates or tasks that are not on the paper. If the paper asks nothing of the parent and has no dates, set nothing_to_do to true. Keep title under 6 words and summary under 20 words. Write in English.`
+
+Events are things that happen on a day: a trip, a day off, an early dismissal, a fair, a meeting, a themed dress-up day. Give each event its date as YYYY-MM-DD, and its start_time and end_time as HH:MM (24-hour) when the paper prints a clock time. Leave the times empty otherwise: "during lunch" or "after school" is not a time. Something that runs over several days gets date and end_date. One event per happening.
+
+Actions are things the parent must do: sign a form, return a paper, bring or send an item, pay or send money, sign up or reply. List each one separately, start it with a verb, and put its deadline in due as YYYY-MM-DD when the paper gives one. A deadline belongs to the action as its due date; it is not an event.
+
+Dates: resolve weekdays and relative dates ("Friday", "next week") against today. A date without a year is the closest one to today, usually in the coming weeks. Set date_confidence to "read" when the paper prints the date, even without a year. Set it to "guessed" only when the paper gives just a weekday or a relative date, or when you cannot read the date clearly. The same rule holds for the due date of an action.
+
+Use only dates that are on the paper. Never give today's date to something that already happened or has no date: a newsletter about the past week has no events. If the paper asks nothing of the parent and has no dates, set nothing_to_do to true.
+
+Keep title under 6 words and summary under 20 words. Write in English.`
 
 // Prompt is the text half of the request; the photo is the other half.
 func Prompt(now time.Time) string {
