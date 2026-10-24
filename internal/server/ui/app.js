@@ -16,10 +16,16 @@ const state = {
   confirm: null,       // paper id waiting for "Delete this paper?"
   editMode: new Set(), // paper ids showing Remove and Add
   showPile: false,
+  earlierOpen: false,
   stale: false,        // new data arrived while a field was open
 };
 let pollTimer = 0;
 let healthTimer = 0;
+let loadSeq = 0;
+// While a mouse button is down the page is not rebuilt, or the click would
+// land on an element that no longer exists.
+let pointerDown = false;
+let renderPending = false;
 
 // h builds an element. Strings become text nodes, never HTML.
 function h(tag, attrs, ...kids) {
@@ -89,7 +95,7 @@ async function api(method, path, body) {
   try {
     res = await fetch(path, opts);
   } catch {
-    throw new Error("Backpack has stopped. Start it again with: backpack");
+    throw new Error(STOPPED);
   }
   let data = null;
   if (res.status !== 204) {
@@ -111,12 +117,17 @@ function waiting() {
   return state.papers.some((p) => p.status === "queued" || p.status === "reading");
 }
 
+const STOPPED = "Backpack has stopped. Start it again with: backpack";
+
 async function load() {
   clearTimeout(pollTimer);
+  const seq = ++loadSeq;
   try {
     const data = await api("GET", "/api/papers");
+    if (seq !== loadSeq) return; // a newer answer is on its way
     state.papers = data.papers;
     state.week = data.week;
+    if ($("status").textContent === STOPPED) say("");
   } catch (e) {
     say(e.message);
   }
@@ -136,11 +147,18 @@ async function checkHealth() {
   watchHealth();
 }
 
-// The model can go away and come back; look again while it matters.
+// The model can go away and come back; look again while it matters. A
+// check already planned is left alone, so polling cannot keep pushing it
+// back.
 function watchHealth() {
-  clearTimeout(healthTimer);
   const problem = state.health && state.health.problem;
-  if (problem || waiting()) healthTimer = setTimeout(checkHealth, problem ? 3000 : 10000);
+  if (!problem && !waiting()) {
+    clearTimeout(healthTimer);
+    healthTimer = 0;
+    return;
+  }
+  if (healthTimer) return;
+  healthTimer = setTimeout(() => { healthTimer = 0; checkHealth(); }, problem ? 3000 : 10000);
 }
 
 async function patch(id, body) {
@@ -165,11 +183,12 @@ async function upload(files) {
   try {
     const out = await api("POST", "/api/papers", form);
     showProblems(out.problems);
-    say(`Added ${plural(out.papers.length, "photo", "photos")}. Reading them now.`);
+    const left = out.problems.length ? ` ${plural(out.problems.length, "file was", "files were")} not added; see above.` : "";
+    say(`Added ${plural(out.papers.length, "photo", "photos")}. Reading them now.${left}`);
   } catch (e) {
     const problems = (e.data && e.data.problems) || [];
     showProblems(problems);
-    say(problems.length ? "" : e.message);
+    say(problems.length ? `Nothing was added; see above.` : e.message);
   }
   await load();
 }
@@ -181,31 +200,40 @@ function showProblems(problems) {
 // ---- editing in place ----
 
 // editable shows text as a button; pressed, it turns into an input. Enter
-// or leaving the field saves, Escape puts the old value back.
-function editable(key, text, { type = "text", value = "", label, onSave, cls = "" }) {
-  if (state.editing === key) {
-    const input = h("input", { type, value, "aria-label": label, "data-key": key });
-    let closed = false;
-    const close = (save) => {
-      if (closed) return;
-      closed = true;
-      state.editing = null;
-      const v = input.value.trim();
-      // onSave returns the save in flight, or nothing when it refused the value.
-      if (!(save && v !== value && onSave(v))) render();
-    };
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); close(true); }
-      if (e.key === "Escape") { e.preventDefault(); close(false); }
-    });
-    input.addEventListener("blur", () => close(true));
-    return input;
-  }
-  return h("button", {
+// or leaving the field saves, Escape puts the old value back. With confirm
+// set (a guessed date), Enter on the unchanged value saves it too, which
+// tells Backpack a person checked it.
+function editable(key, text, opts) {
+  const { type = "text", value = "", label, onSave, cls = "", confirm = false } = opts;
+  const button = () => h("button", {
     type: "button", class: `edit ${cls}`.trim(), "data-key": key,
     "aria-describedby": "edit-hint",
     onclick: () => { state.editing = key; render(); },
   }, text);
+  if (state.editing !== key) return button();
+
+  const input = h("input", { type, value, "aria-label": label, "data-key": key });
+  let closed = false;
+  const close = (save, enter) => {
+    if (closed) return;
+    closed = true;
+    state.editing = null;
+    const v = input.value.trim();
+    // onSave returns the save in flight, or nothing when it refused the value.
+    if (save && (v !== value || (enter && confirm)) && onSave(v)) return;
+    // Nothing to save: put the button back in place without rebuilding the
+    // page, so a click or Tab on the way out reaches where it was going.
+    const b = button();
+    input.replaceWith(b);
+    if (enter !== undefined) b.focus();
+    if (state.stale) render();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); close(true, true); }
+    if (e.key === "Escape") { e.preventDefault(); close(false, false); }
+  });
+  input.addEventListener("blur", () => close(true));
+  return input;
 }
 
 function checkTag(confidence) {
@@ -220,7 +248,7 @@ function dateButton(prefix, ev) {
   return [
     editable(key, text, {
       type: "date", value: ev.date || "", label: `Date for ${ev.title}`,
-      cls: guessed ? "guess" : "",
+      cls: guessed ? "guess" : "", confirm: guessed,
       onSave: (v) => patchEvent(ev.paper_id, ev.index, { date: v }),
     }),
     open ? null : checkTag(ev.date_confidence),
@@ -251,7 +279,7 @@ function dueButton(prefix, t, always) {
   const text = t.due ? by + fmtDay(t.due) : t.raw || "add a date";
   return h("span", { class: "due" },
     editable(key, text, {
-      type: "date", value: t.due || "", label: `Date for ${t.text}`,
+      type: "date", value: t.due || "", label: `Date for ${t.text}`, confirm: t.date_confidence === "guessed",
       cls: [t.date_confidence === "guessed" ? "guess" : "", t.due || t.raw ? "" : "empty"].join(" "),
       onSave: (v) => patchAction(t.paper_id, t.index, { due: v }),
     }),
@@ -269,6 +297,10 @@ function todoBox(prefix, t) {
 // ---- the page ----
 
 function render() {
+  if (pointerDown) {
+    renderPending = true;
+    return;
+  }
   const focused = document.activeElement && document.activeElement.dataset.key;
   state.stale = false;
 
@@ -278,6 +310,9 @@ function render() {
   $("first").hidden = state.papers.length > 0;
   $("week-label").textContent = state.week ? state.week.label : "";
   $("main").replaceChildren(...renderWeek(), ...renderPapers());
+  // One primary button per screen: the calendar once there are dates,
+  // until then the way to add photos.
+  $("choose").classList.toggle("primary", !document.querySelector('[data-key="ics"]'));
 
   const again = focused && document.querySelector(`[data-key="${CSS.escape(focused)}"]`);
   const editing = state.editing && document.querySelector(`[data-key="${CSS.escape(state.editing)}"]`);
@@ -287,11 +322,32 @@ function render() {
   } else if (again) {
     again.focus();
   }
+  if (state.editing && document.activeElement !== editing) {
+    // The field could not take focus (it is gone, or hidden): stop editing
+    // rather than leave the page waiting for it.
+    state.editing = null;
+    render();
+  }
+}
+
+document.addEventListener("pointerdown", () => { pointerDown = true; }, true);
+for (const type of ["pointerup", "pointercancel"]) {
+  document.addEventListener(type, () => setTimeout(() => {
+    pointerDown = false;
+    if (renderPending) {
+      renderPending = false;
+      render();
+    }
+  }, 0), true);
 }
 
 function renderBanner(problem) {
   const b = $("banner");
   b.hidden = !problem;
+  // Same words as last time: leave the alert alone so it is not announced again.
+  const sig = problem ? `${problem}|${state.health.model}|${state.health.reachable}` : "";
+  if (b.dataset.sig === sig) return;
+  b.dataset.sig = sig;
   if (!problem) return b.replaceChildren();
   const health = state.health;
   const model = health.model || "gemma4:e4b";
@@ -319,8 +375,11 @@ function renderWeek() {
         h("h3", {}, plural(w.dates.length, "date", "dates")),
         inFile ? h("a", { class: "button primary", href: "/api/calendar.ics", download: "backpack.ics", "data-key": "ics" }, "Download calendar (.ics)") : null),
       w.dates.map((d) => dateRow(d)),
-      w.earlier.length ? h("details", { class: "earlier" },
-        h("summary", {}, `Earlier (${w.earlier.length})`),
+      w.earlier.length ? h("details", {
+        class: "earlier", open: state.earlierOpen,
+        ontoggle: (e) => { state.earlierOpen = e.target.open; },
+      },
+        h("summary", { "data-key": "earlier" }, `Earlier (${w.earlier.length})`),
         w.earlier.map((d) => dateRow(d))) : null));
   }
 
@@ -404,7 +463,7 @@ function averageSeconds() {
 function card(p) {
   const thumb = h("a", {
     class: "thumb", href: `/api/papers/${encodeURIComponent(p.id)}/photo`, target: "_blank", rel: "noopener",
-    "aria-label": "Open the photo",
+    "aria-label": "Open the photo", "data-key": `c:${p.id}:photo`,
   }, h("img", { src: `/api/papers/${encodeURIComponent(p.id)}/photo`, alt: "", loading: "lazy" }));
   return h("article", { class: "card", "aria-label": p.status === "done" ? p.reading.title : "Paper" },
     thumb, h("div", {}, ...cardBody(p)));
@@ -429,7 +488,8 @@ function cardBody(p) {
         type: "button", "data-key": `c:${p.id}:reread`,
         onclick: async () => {
           try { await api("POST", `/api/papers/${encodeURIComponent(p.id)}/reread`); } catch (e) { say(e.message); }
-          load();
+          await load();
+          focusKey(`c:${p.id}:delete`);
         },
       }, "Read again")]),
     ];
@@ -472,7 +532,7 @@ function cardBody(p) {
   }
   if (r.events.length || r.actions.length || editing) {
     extra.push(h("button", {
-      type: "button", class: "quiet", "data-key": `c:${p.id}:editmode`, "aria-pressed": String(editing),
+      type: "button", class: "quiet", "data-key": `c:${p.id}:editmode`,
       onclick: () => { editing ? state.editMode.delete(p.id) : state.editMode.add(p.id); render(); },
     }, editing ? "Done editing" : "Edit"));
   }
@@ -502,7 +562,7 @@ async function addEvent(p) {
   const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   await patch(p.id, { event: { title: p.reading.title, date: today } });
   const fresh = state.papers.find((x) => x.id === p.id);
-  if (fresh) {
+  if (fresh && fresh.reading.events.length > p.reading.events.length) {
     state.editing = `c:${p.id}:e${fresh.reading.events.length - 1}:date`;
     render();
   }
@@ -511,7 +571,7 @@ async function addEvent(p) {
 async function addAction(p) {
   await patch(p.id, { action: { text: "New to-do" } });
   const fresh = state.papers.find((x) => x.id === p.id);
-  if (fresh) {
+  if (fresh && fresh.reading.actions.length > p.reading.actions.length) {
     state.editing = `c:${p.id}:a${fresh.reading.actions.length - 1}:text`;
     render();
   }
@@ -528,7 +588,7 @@ function tools(p, extra) {
           state.confirm = null;
           try { await api("DELETE", `/api/papers/${encodeURIComponent(p.id)}`); say("Deleted."); } catch (e) { say(e.message); }
           await load();
-          if (!focusKey("papers")) $("choose").focus();
+          if (!focusKey("papers") && !$("drop").hidden) $("choose").focus();
         },
       }, "Yes, delete"),
       h("button", {
