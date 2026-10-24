@@ -68,7 +68,7 @@ func checkEvent(e Event, paperTitle string, now time.Time) (Event, bool) {
 		e.Title = paperTitle
 	}
 	e.Location = clip(e.Location, maxLocation)
-	e.Raw = ""
+	e.ID, e.Raw = "", ""
 	e.Include = nil
 	if e.Confidence != Read {
 		e.Confidence = Guessed
@@ -111,7 +111,8 @@ func checkEvent(e Event, paperTitle string, now time.Time) (Event, bool) {
 	e.StartTime, e.EndTime = "", ""
 	if okStart {
 		e.StartTime = start
-		if okEnd && end > start {
+		// An end time before the start only makes sense on a later day.
+		if okEnd && (end > start || e.EndDate != "") {
 			e.EndTime = end
 		}
 	}
@@ -127,7 +128,7 @@ func checkAction(a Action, now time.Time) (Action, bool) {
 	if !actionKinds[a.Kind] {
 		a.Kind = "other"
 	}
-	a.Done, a.Raw = false, ""
+	a.ID, a.Done, a.Raw = "", false, ""
 	raw := clip(a.Due, maxTitle)
 	if raw == "" {
 		a.Due, a.Confidence = "", ""
@@ -229,9 +230,15 @@ func contains(big, small []string) bool {
 	return true
 }
 
-// clip trims s, folds runs of white space into one space and cuts it to n
-// characters.
+// clip trims s, turns control characters and runs of white space into one
+// space and cuts it to n characters.
 func clip(s string, n int) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, s)
 	s = strings.Join(strings.Fields(s), " ")
 	if r := []rune(s); len(r) > n {
 		s = strings.TrimSpace(string(r[:n]))

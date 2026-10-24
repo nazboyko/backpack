@@ -267,3 +267,26 @@ func TestValidateCapsListLength(t *testing.T) {
 		t.Fatalf("%d events kept", len(r.Events))
 	}
 }
+
+func TestValidateStripsControlCharacters(t *testing.T) {
+	r := Validate(Reading{Title: "Bake\x00 sale\x1b[2J", Actions: []Action{{Text: "Bring\u0007 cookies", Kind: "bring"}}}, monday)
+	if r.Title != "Bake sale [2J" || r.Actions[0].Text != "Bring cookies" {
+		t.Fatalf("got %q / %q", r.Title, r.Actions[0].Text)
+	}
+}
+
+func TestValidateKeepsOvernightEndTime(t *testing.T) {
+	r := Validate(Reading{Title: "Camp", Events: []Event{{Title: "Camp", Date: "2026-11-06", EndDate: "2026-11-08",
+		StartTime: "18:00", EndTime: "12:00", Confidence: Read}}}, monday)
+	if e := r.Events[0]; e.EndTime != "12:00" || e.EndDate != "2026-11-08" {
+		t.Fatalf("multi-day event lost its end: %+v", e)
+	}
+}
+
+func TestValidateDropsModelIDs(t *testing.T) {
+	r := Validate(Reading{Title: "P", Events: []Event{{ID: "x", Title: "a", Date: "2026-11-03", Confidence: Read}},
+		Actions: []Action{{ID: "y", Text: "b", Kind: "other"}}}, monday)
+	if r.Events[0].ID != "" || r.Actions[0].ID != "" {
+		t.Fatal("ids come from Backpack, not from the model")
+	}
+}

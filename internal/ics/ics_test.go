@@ -114,11 +114,39 @@ func TestSpans(t *testing.T) {
 		{reader.Event{Date: "2026-10-29", StartTime: "12:30"}, ":20261029T123000", ":20261029T133000"},
 		{reader.Event{Date: "2026-11-05", StartTime: "17:00", EndTime: "19:00"}, ":20261105T170000", ":20261105T190000"},
 		{reader.Event{Date: "2026-12-31", StartTime: "23:30"}, ":20261231T233000", ":20270101T003000"},
+		{reader.Event{Date: "2026-11-06", EndDate: "2026-11-08", StartTime: "18:00", EndTime: "12:00"}, ":20261106T180000", ":20261108T120000"},
+		{reader.Event{Date: "2026-11-06", EndDate: "2026-11-08", StartTime: "18:00"}, ":20261106T180000", ":20261108T190000"},
 	}
 	for _, c := range cases {
 		s, e, ok := span(c.e)
 		if !ok || s != c.start || e != c.end {
 			t.Errorf("%+v: %q %q %v, want %q %q", c.e, s, e, ok, c.start, c.end)
 		}
+	}
+}
+
+func TestUIDFollowsTheEventNotItsPlace(t *testing.T) {
+	ps := []store.Paper{{ID: "pppppppppppp", Status: store.Done, Reading: reader.Reading{Title: "P", Events: []reader.Event{
+		{ID: "e2", Title: "Second", Date: "2026-11-04"},
+	}}}}
+	items := Items(ps, nil)
+	if items[0].UID != "pppppppppppp-e2@backpack.local" {
+		t.Fatalf("uid %s", items[0].UID)
+	}
+	if got := Items(ps, []string{"pppppppppppp-e2"}); len(got) != 1 {
+		t.Fatal("event id filter missed")
+	}
+}
+
+func TestFoldDoesNotHangOnBadUTF8(t *testing.T) {
+	done := make(chan string)
+	go func() { done <- fold(strings.Repeat("\x80", 200)) }()
+	select {
+	case out := <-done:
+		if !strings.HasSuffix(out, "\r\n") {
+			t.Fatal("no line end")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("fold loops on bytes that are not UTF-8")
 	}
 }

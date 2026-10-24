@@ -205,3 +205,17 @@ func TestPhotoAndFilesArePrivate(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenLeavesOtherFilesAlone(t *testing.T) {
+	dir := t.TempDir()
+	mine := filepath.Join(dir, "notes.tmp")
+	os.WriteFile(mine, []byte("keep me"), 0o600)
+	os.WriteFile(filepath.Join(dir, "abc123def456.jpg.999.tmp"), []byte("half a photo"), 0o600)
+	open(t, dir)
+	if _, err := os.Stat(mine); err != nil {
+		t.Fatal("removed a file that is not Backpack's")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "abc123def456.jpg.999.tmp")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("left a half-written photo behind")
+	}
+}

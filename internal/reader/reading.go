@@ -36,6 +36,7 @@ type Reading struct {
 // HH:MM (24 h) once validated. Raw keeps what the model wrote when it was
 // not a date, so the parent can see it.
 type Event struct {
+	ID         string `json:"id,omitempty"` // set by Backpack, stays the same through edits
 	Title      string `json:"title"`
 	Date       string `json:"date"`
 	EndDate    string `json:"end_date,omitempty"`
@@ -49,6 +50,7 @@ type Event struct {
 
 // Action is something the parent has to do.
 type Action struct {
+	ID         string `json:"id,omitempty"` // set by Backpack, stays the same through edits
 	Text       string `json:"text"`
 	Kind       string `json:"kind"`
 	Due        string `json:"due,omitempty"`

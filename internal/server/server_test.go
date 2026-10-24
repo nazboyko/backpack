@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
@@ -538,5 +539,97 @@ func TestListenAddrIsLoopback(t *testing.T) {
 		if a := ListenAddr(port); !strings.HasPrefix(a, "127.0.0.1:") {
 			t.Fatalf("ListenAddr(%d) = %q", port, a)
 		}
+	}
+}
+
+func TestUploadCutShortKeepsWhatArrived(t *testing.T) {
+	defer func(n int64) { maxUpload = n }(maxUpload)
+	one := photo(t)
+	maxUpload = int64(len(one))*2 + 1200 // room for about two photos and their headers
+	s, h := newServer(t, &stubReader{})
+	files := map[string][]byte{}
+	for i := 0; i < 6; i++ {
+		files[fmt.Sprintf("p%d.jpg", i)] = one
+	}
+	rec := upload(t, h, files)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	out := decodeJSON[uploadResponse](t, rec)
+	if len(out.Papers) == 0 || len(out.Papers) == 6 || len(out.Problems) != 1 {
+		t.Fatalf("papers %d problems %+v", len(out.Papers), out.Problems)
+	}
+	if len(s.store.List()) != len(out.Papers) {
+		t.Fatal("reply does not match what was stored")
+	}
+	select {
+	case <-s.wake:
+	default:
+		t.Fatal("the worker was not told about the photos that arrived")
+	}
+}
+
+func TestEditingUndatedEventKeepsItAGuess(t *testing.T) {
+	s, h := newServer(t, &stubReader{})
+	p := readyPaper(t, s)
+	s.store.Update(p.ID, func(q *store.Paper) error {
+		q.Reading.Events = append(q.Reading.Events, reader.Event{Title: "Concert", Confidence: reader.Guessed, Raw: "after break"})
+		return nil
+	})
+	if rec := patchReq(t, h, p.ID, `{"event":{"index":2,"start_time":"18:00"}}`); rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+	got, _ := s.store.Get(p.ID)
+	if e := got.Reading.Events[2]; e.Confidence != reader.Guessed || e.Raw != "after break" {
+		t.Fatalf("event %+v", e)
+	}
+}
+
+func TestEmptyCalendarIs404(t *testing.T) {
+	_, h := newServer(t, &stubReader{})
+	rec := do(h, "GET", "/api/calendar.ics", nil)
+	if rec.Code != http.StatusNotFound || decodeJSON[map[string]string](t, rec)["error"] == "" {
+		t.Fatalf("status %d", rec.Code)
+	}
+}
+
+func TestPatchFailedPaperSaysReadAgain(t *testing.T) {
+	s, h := newServer(t, &stubReader{})
+	p, _ := s.store.Add(photo(t), now)
+	s.store.Update(p.ID, func(q *store.Paper) error { q.Status = store.Failed; return nil })
+	rec := patchReq(t, h, p.ID, `{"title":"x"}`)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "Read again") {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestRejectedRequestsStillCarrySafetyHeaders(t *testing.T) {
+	_, h := newServer(t, &stubReader{})
+	req := httptest.NewRequest("GET", "/api/papers", nil)
+	req.Host = "evil.example"
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Header().Get("X-Content-Type-Options") != "nosniff" || rec.Header().Get("Cross-Origin-Resource-Policy") != "same-origin" {
+		t.Fatalf("headers %v", rec.Header())
+	}
+}
+
+func TestReadItemsGetStableIDs(t *testing.T) {
+	rd := &stubReader{reading: reader.Reading{Title: "Trip",
+		Events:  []reader.Event{{Title: "Trip", Date: "2026-11-04"}},
+		Actions: []reader.Action{{Text: "Sign"}}}}
+	s, h := newServer(t, rd)
+	upload(t, h, map[string][]byte{"a.jpg": photo(t)})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Run(ctx)
+	p := waitFor(t, s, store.Done)
+	if p.Reading.Events[0].ID == "" || p.Reading.Actions[0].ID == "" {
+		t.Fatalf("no ids: %+v", p.Reading)
+	}
+	patchReq(t, h, p.ID, `{"event":{"title":"Pick-up","date":"2026-11-04"}}`)
+	got, _ := s.store.Get(p.ID)
+	if id := got.Reading.Events[1].ID; id == "" || id == got.Reading.Events[0].ID {
+		t.Fatalf("added event id %q", id)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/nazboyko/backpack/internal/reader"
 	"github.com/nazboyko/backpack/internal/store"
@@ -48,7 +49,8 @@ type badEdit string
 func (b badEdit) Error() string { return string(b) }
 
 var (
-	errConflict = errors.New("not in a state for this")
+	errConflict = errors.New("still being read")
+	errFailed   = errors.New("could not be read")
 	timeRe      = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 )
 
@@ -69,10 +71,13 @@ func (s *Server) patch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := s.store.Update(r.PathValue("id"), func(p *store.Paper) error {
-		if p.Status != store.Done {
-			return errConflict
+		switch p.Status {
+		case store.Done:
+			return apply(p, pt)
+		case store.Failed:
+			return errFailed
 		}
-		return apply(p, pt)
+		return errConflict
 	})
 	if s.storeError(w, err) {
 		return
@@ -90,6 +95,8 @@ func (s *Server) storeError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusNotFound, "This paper is gone. Reload the page.")
 	case errors.Is(err, errConflict):
 		writeError(w, http.StatusConflict, "This paper is still being read. Try again in a moment.")
+	case errors.Is(err, errFailed):
+		writeError(w, http.StatusConflict, "This paper could not be read. Press Read again first.")
 	case errors.As(err, &bad):
 		writeError(w, http.StatusBadRequest, string(bad))
 	default:
@@ -148,7 +155,7 @@ func applyEvent(rd *reader.Reading, ed eventEdit) error {
 		if ed.Remove {
 			return errNoIndex
 		}
-		rd.Events = append(rd.Events, reader.Event{Title: rd.Title, Confidence: reader.Checked})
+		rd.Events = append(rd.Events, reader.Event{ID: store.NewItemID(), Title: rd.Title, Confidence: reader.Checked})
 		e = &rd.Events[len(rd.Events)-1]
 	case *ed.Index < 0 || *ed.Index >= len(rd.Events):
 		return errNoIndex
@@ -205,11 +212,12 @@ func applyEvent(rd *reader.Reading, ed eventEdit) error {
 	if e.EndDate != "" && e.EndDate <= e.Date {
 		e.EndDate = ""
 	}
-	if e.StartTime == "" || (e.EndTime != "" && e.EndTime <= e.StartTime) {
+	// An end time before the start only makes sense on a later day.
+	if e.StartTime == "" || (e.EndTime != "" && e.EndDate == "" && e.EndTime <= e.StartTime) {
 		e.EndTime = ""
 	}
-	if dated {
-		// A person typed it in: no longer a guess.
+	if dated && e.Date != "" {
+		// A person looked at the day and set it: no longer a guess.
 		e.Confidence, e.Raw = reader.Checked, ""
 	}
 	return nil
@@ -222,7 +230,7 @@ func applyAction(rd *reader.Reading, ed actionEdit) error {
 		if ed.Remove {
 			return errNoIndex
 		}
-		rd.Actions = append(rd.Actions, reader.Action{Kind: "other"})
+		rd.Actions = append(rd.Actions, reader.Action{ID: store.NewItemID(), Kind: "other"})
 		a = &rd.Actions[len(rd.Actions)-1]
 	case *ed.Index < 0 || *ed.Index >= len(rd.Actions):
 		return errNoIndex
@@ -264,8 +272,15 @@ func applyAction(rd *reader.Reading, ed actionEdit) error {
 	return nil
 }
 
-// clean trims and folds white space and cuts to n characters.
+// clean drops control characters, folds white space and cuts to n
+// characters.
 func clean(s string, n int) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, s)
 	s = strings.Join(strings.Fields(s), " ")
 	if r := []rune(s); len(r) > n {
 		s = strings.TrimSpace(string(r[:n]))

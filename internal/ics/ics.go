@@ -22,7 +22,9 @@ type Item struct {
 
 // Items picks the events that go into the file: read papers only, events
 // with a date, not switched off by the parent. ids, when given, keeps only
-// those papers ("<paper id>") or single events ("<paper id>-<n>").
+// those papers ("<paper id>") or single events ("<paper id>-<event id>").
+// The UID comes from the event's own id, so importing the file again
+// updates the same calendar entries.
 func Items(papers []store.Paper, ids []string) []Item {
 	want := map[string]bool{}
 	for _, id := range ids {
@@ -36,7 +38,11 @@ func Items(papers []store.Paper, ids []string) []Item {
 			continue
 		}
 		for n, e := range p.Reading.Events {
-			key := fmt.Sprintf("%s-%d", p.ID, n)
+			name := e.ID
+			if name == "" {
+				name = fmt.Sprint(n)
+			}
+			key := p.ID + "-" + name
 			switch {
 			case e.Date == "", e.Include != nil && !*e.Include:
 				continue
@@ -103,6 +109,9 @@ func span(e reader.Event) (start, end string, ok bool) {
 		return "", "", false
 	}
 	to := from.Add(time.Hour)
+	if last.After(day) {
+		to = time.Date(last.Year(), last.Month(), last.Day(), from.Hour(), from.Minute(), 0, 0, time.UTC).Add(time.Hour)
+	}
 	if e.EndTime != "" {
 		if t, err := time.Parse("2006-01-02 15:04", last.Format("2006-01-02")+" "+e.EndTime); err == nil && t.After(from) {
 			to = t
@@ -126,6 +135,9 @@ func fold(s string) string {
 		cut := limit
 		for cut > 0 && !utf8.RuneStart(s[cut]) {
 			cut--
+		}
+		if cut == 0 { // not UTF-8 at all; cut anyway rather than loop
+			cut = limit
 		}
 		b.WriteString(s[:cut])
 		b.WriteString("\r\n ")

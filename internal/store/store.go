@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,10 +55,13 @@ func Open(dir string) (*Store, error) {
 		return nil, err
 	}
 	s := &Store{dir: dir}
-	// Half-written files from a crash are never read; clear them away.
-	if leftovers, _ := filepath.Glob(filepath.Join(dir, "*.tmp")); leftovers != nil {
-		for _, f := range leftovers {
-			os.Remove(f)
+	// Half-written files of ours from a crash are never read; clear them
+	// away. Anything else in the folder is left alone.
+	if entries, err := os.ReadDir(dir); err == nil {
+		for _, e := range entries {
+			if isLeftover(e.Name()) {
+				os.Remove(filepath.Join(dir, e.Name()))
+			}
 		}
 	}
 	data, err := os.ReadFile(filepath.Join(dir, fileName))
@@ -147,7 +151,8 @@ func (s *Store) Update(id string, fn func(*Paper) error) (Paper, error) {
 	return clone(p), nil
 }
 
-// Delete removes a paper and its photo.
+// Delete removes a paper and its photo. The photo goes first: if it cannot
+// be removed, the paper stays and the parent can try again.
 func (s *Store) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -155,14 +160,13 @@ func (s *Store) Delete(id string) error {
 		if p.ID != id {
 			continue
 		}
-		rest := append(append([]*Paper{}, s.papers[:i]...), s.papers[i+1:]...)
-		old := s.papers
-		s.papers = rest
-		if err := s.save(); err != nil {
-			s.papers = old
+		if err := os.Remove(filepath.Join(s.dir, p.Photo)); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		if err := os.Remove(filepath.Join(s.dir, p.Photo)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		old := s.papers
+		s.papers = append(append([]*Paper{}, s.papers[:i]...), s.papers[i+1:]...)
+		if err := s.save(); err != nil {
+			s.papers = old
 			return err
 		}
 		return nil
@@ -228,6 +232,21 @@ func writeFile(path string, data []byte) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+// isLeftover matches the temporary names writeFile uses for papers.json
+// and the photos.
+func isLeftover(name string) bool {
+	return strings.HasSuffix(name, ".tmp") &&
+		(strings.HasPrefix(name, fileName+".") || strings.Contains(name, ".jpg."))
+}
+
+// NewItemID names one event or action so the calendar file can update it
+// in place on the next import.
+func NewItemID() string {
+	b := make([]byte, 4)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func newID() (string, error) {

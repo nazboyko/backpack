@@ -26,11 +26,13 @@ import (
 var uiFiles embed.FS
 
 const (
-	maxPhoto   = 40 << 20  // one phone photo, HEIC or JPEG, with room to spare
-	maxUpload  = 400 << 20 // one drop of a week's pile
+	maxPhoto   = 40 << 20 // one phone photo, HEIC or JPEG, with room to spare
 	maxPhotos  = 50
 	retryAfter = 5 * time.Second // wait before trying again when Ollama is away
 )
+
+// maxUpload caps one drop of a week's pile; a variable so tests can trip it.
+var maxUpload int64 = 400 << 20
 
 // Reader reads a prepared photo; *reader.Client is the real one.
 type Reader interface {
@@ -81,6 +83,11 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		fmt.Sprintf("localhost:%d", s.port): true,
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Cross-Origin-Resource-Policy", "same-origin")
+		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
 		if !hosts[r.Host] {
 			http.Error(w, "Backpack only answers on this computer.", http.StatusForbidden)
 			return
@@ -94,10 +101,6 @@ func (s *Server) guard(next http.Handler) http.Handler {
 				return
 			}
 		}
-		h := w.Header()
-		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("Referrer-Policy", "no-referrer")
-		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -138,25 +141,35 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if err != nil {
+		if err == nil {
+			if part.FormName() != "photos" || part.FileName() == "" {
+				part.Close()
+				continue
+			}
+			if n++; n > maxPhotos {
+				out.Problems = append(out.Problems, uploadProblem{part.FileName(), fmt.Sprintf("Only %d photos at a time.", maxPhotos)})
+				part.Close()
+				continue
+			}
+			var p store.Paper
+			var problem string
+			if p, problem, err = s.addPhoto(part); err == nil {
+				if problem != "" {
+					out.Problems = append(out.Problems, uploadProblem{part.FileName(), problem})
+				} else {
+					out.Papers = append(out.Papers, p)
+				}
+				continue
+			}
+		}
+		// The drop broke off (too big, or the browser went away). Whatever
+		// arrived whole is kept and read.
+		if len(out.Papers) == 0 {
 			writeError(w, http.StatusRequestEntityTooLarge, "That was too much at once. Drop fewer photos at a time.")
 			return
 		}
-		if part.FormName() != "photos" || part.FileName() == "" {
-			part.Close()
-			continue
-		}
-		if n++; n > maxPhotos {
-			out.Problems = append(out.Problems, uploadProblem{part.FileName(), fmt.Sprintf("Only %d photos at a time.", maxPhotos)})
-			part.Close()
-			continue
-		}
-		p, problem := s.addPhoto(part)
-		if problem != "" {
-			out.Problems = append(out.Problems, uploadProblem{part.FileName(), problem})
-			continue
-		}
-		out.Papers = append(out.Papers, p)
+		out.Problems = append(out.Problems, uploadProblem{"", fmt.Sprintf("Only the first %d photos arrived. Drop the rest again.", len(out.Papers))})
+		break
 	}
 	if len(out.Papers) == 0 {
 		msg := "Drop one or more photos."
@@ -173,25 +186,27 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, out)
 }
 
-func (s *Server) addPhoto(part *multipart.Part) (store.Paper, string) {
+// addPhoto stores one uploaded photo. It returns a problem to show for
+// this file, or an error when the upload itself broke off.
+func (s *Server) addPhoto(part *multipart.Part) (store.Paper, string, error) {
 	defer part.Close()
 	data, err := io.ReadAll(io.LimitReader(part, maxPhoto+1))
 	if err != nil {
-		return store.Paper{}, "This photo did not arrive whole. Drop it again."
+		return store.Paper{}, "", err
 	}
 	if len(data) > maxPhoto {
-		return store.Paper{}, string(reader.ErrTooBig)
+		return store.Paper{}, string(reader.ErrTooBig), nil
 	}
 	jpg, err := reader.Prepare(data)
 	if err != nil {
-		return store.Paper{}, reader.Explain(err)
+		return store.Paper{}, reader.Explain(err), nil
 	}
 	p, err := s.store.Add(jpg, s.now())
 	if err != nil {
 		s.log.Printf("saving a photo: %v", err)
-		return store.Paper{}, "Backpack could not save this photo. Check that the disk is not full."
+		return store.Paper{}, "Backpack could not save this photo. Check that the disk is not full.", nil
 	}
-	return p, ""
+	return p, "", nil
 }
 
 func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
@@ -214,6 +229,10 @@ func (s *Server) reread(w http.ResponseWriter, r *http.Request) {
 		p.Status, p.Error = store.Queued, ""
 		return nil
 	})
+	if errors.Is(err, errConflict) {
+		writeError(w, http.StatusConflict, "This paper is read already.")
+		return
+	}
 	if s.storeError(w, err) {
 		return
 	}
@@ -237,9 +256,14 @@ func (s *Server) calendar(w http.ResponseWriter, r *http.Request) {
 	if q := r.URL.Query().Get("ids"); q != "" {
 		ids = strings.Split(q, ",")
 	}
+	items := ics.Items(s.store.List(), ids)
+	if len(items) == 0 {
+		writeError(w, http.StatusNotFound, "There are no dates for the calendar yet.")
+		return
+	}
 	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="backpack.ics"`)
-	if err := ics.Write(w, ics.Items(s.store.List(), ids), s.now()); err != nil {
+	if err := ics.Write(w, items, s.now()); err != nil {
 		s.log.Printf("writing the calendar: %v", err)
 	}
 }

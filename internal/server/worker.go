@@ -76,6 +76,12 @@ func (s *Server) read(ctx context.Context, p store.Paper) {
 			q.Status, q.Error, q.ReadMs = store.Failed, reader.Explain(err), ms
 		})
 	default:
+		for i := range r.Events {
+			r.Events[i].ID = store.NewItemID()
+		}
+		for i := range r.Actions {
+			r.Actions[i].ID = store.NewItemID()
+		}
 		s.finish(p.ID, func(q *store.Paper) {
 			q.Status, q.Error, q.ReadMs, q.Reading = store.Done, "", ms, r
 		})
