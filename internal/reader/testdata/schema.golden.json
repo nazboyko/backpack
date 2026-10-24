@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "required": ["title","summary","kind","nothing_to_do","events","actions"],
+  "properties": {
+    "title":   {"type":"string"},
+    "summary": {"type":"string"},
+    "kind":    {"type":"string","enum":["notice","form","flyer","homework","calendar","other"]},
+    "nothing_to_do": {"type":"boolean"},
+    "events": {"type":"array","items":{"type":"object",
+      "required":["title","date","date_confidence"],
+      "properties":{
+        "title":{"type":"string"},
+        "date":{"type":"string"},
+        "end_date":{"type":"string"},
+        "start_time":{"type":"string"},
+        "end_time":{"type":"string"},
+        "location":{"type":"string"},
+        "date_confidence":{"type":"string","enum":["read","guessed"]}}}},
+    "actions": {"type":"array","items":{"type":"object",
+      "required":["text","kind"],
+      "properties":{
+        "text":{"type":"string"},
+        "kind":{"type":"string","enum":["sign","return","bring","pay","rsvp","other"]},
+        "due":{"type":"string"},
+        "date_confidence":{"type":"string","enum":["read","guessed"]}}}}
+  }
+}
