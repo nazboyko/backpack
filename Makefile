@@ -19,8 +19,8 @@ check:
 fixtures:
 	scripts/fixtures.sh
 
-screenshots: build
-	scripts/screenshots.sh
+screenshots:
+	go test -tags screenshots -run TestScreenshots -count=1 -v ./internal/server
 
 live-check:
 	scripts/live-check.sh
