@@ -2,9 +2,12 @@
 
 package server
 
-// Run with `make screenshots`. It seeds a store with the fixture papers,
-// serves the real page and has headless Chrome take a picture of each
-// state into docs/img. Set CHROME to use another browser binary.
+// Run with `make screenshots`. It seeds a store with the fixture papers and
+// what gemma4:e4b read from them in the live check
+// (testdata/papers/gemma4-e4b.readings.json, written by
+// `BACKPACK_LIVE_OUT=... make live-check`), serves the real page and has
+// headless Chrome take a picture of each state into docs/img. Set CHROME to
+// use another browser binary.
 
 import (
 	"context"
@@ -47,9 +50,17 @@ func fixtures(t *testing.T) []string {
 	return files
 }
 
-// seed adds fixture photos; done ones get the expected reading.
+// seed adds fixture photos; done ones get what the model read from them.
 func seed(t *testing.T, st *store.Store, files []string, status string, at time.Time) {
 	t.Helper()
+	var readings map[string]reader.Reading
+	raw, err := os.ReadFile("../../testdata/papers/gemma4-e4b.readings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &readings); err != nil {
+		t.Fatal(err)
+	}
 	for i, f := range files {
 		data, _ := os.ReadFile(f)
 		jpg, err := reader.Prepare(data)
@@ -63,10 +74,10 @@ func seed(t *testing.T, st *store.Store, files []string, status string, at time.
 		if status == store.Queued {
 			continue
 		}
-		var r reader.Reading
-		raw, _ := os.ReadFile(strings.TrimSuffix(f, ".jpg") + ".expected.json")
-		json.Unmarshal(raw, &r)
-		r = reader.Validate(r, shotDay)
+		r, ok := readings[strings.TrimSuffix(filepath.Base(f), ".jpg")]
+		if !ok {
+			t.Fatalf("no reading for %s", f)
+		}
 		st.Update(p.ID, func(q *store.Paper) error {
 			q.Status, q.Reading, q.ReadMs = status, r, 9000+int64(i)*700
 			if status == store.Failed {

@@ -1,0 +1,246 @@
+{
+  "01-field-trip": {
+    "title": "Field Trip to Science Museum",
+    "summary": "Kindergarten field trip to Riverside Science Museum on Nov 4. Permission slip and payment required.",
+    "kind": "calendar",
+    "nothing_to_do": false,
+    "events": [
+      {
+        "title": "Field Trip to Riverside Science Museum",
+        "date": "2026-11-04",
+        "start_time": "09:00",
+        "end_time": "14:15",
+        "date_confidence": "read"
+      }
+    ],
+    "actions": [
+      {
+        "text": "Sign and return the slip",
+        "kind": "return",
+        "due": "2026-10-30",
+        "date_confidence": "read"
+      },
+      {
+        "text": "Send $8 per child",
+        "kind": "pay",
+        "due": "2026-10-30",
+        "date_confidence": "read"
+      }
+    ]
+  },
+  "02-picture-day": {
+    "title": "Picture Day Information",
+    "summary": "Picture Day is Tuesday, Nov. 3. Order photos online before the date.",
+    "kind": "notice",
+    "nothing_to_do": false,
+    "events": [
+      {
+        "title": "Picture Day",
+        "date": "2026-11-03",
+        "date_confidence": "read"
+      }
+    ],
+    "actions": [
+      {
+        "text": "Order online before Picture Day with school code MGF26",
+        "kind": "pay",
+        "due": "2026-11-03",
+        "date_confidence": "guessed"
+      }
+    ]
+  },
+  "03-early-release": {
+    "title": "Early Release Day Notice",
+    "summary": "Students will be dismissed early on Thursday, October 29, 2026, for teacher training.",
+    "kind": "notice",
+    "nothing_to_do": false,
+    "events": [
+      {
+        "title": "Early Release Day",
+        "date": "2026-10-29",
+        "start_time": "12:30",
+        "date_confidence": "read"
+      }
+    ],
+    "actions": [
+      {
+        "text": "Make arrangements for child's pick-up",
+        "kind": "sign",
+        "due": "2026-10-29",
+        "date_confidence": "guessed"
+      }
+    ]
+  },
+  "04-spirit-week": {
+    "title": "Spirit Week Schedule",
+    "summary": "Maple Grove Elementary Spirit Week runs from October 26-30.",
+    "kind": "calendar",
+    "nothing_to_do": false,
+    "events": [
+      {
+        "title": "Pajama Day",
+        "date": "2026-10-26",
+        "date_confidence": "read"
+      },
+      {
+        "title": "Crazy Hair Day",
+        "date": "2026-10-27",
+        "date_confidence": "read"
+      },
+      {
+        "title": "Twin Day",
+        "date": "2026-10-28",
+        "date_confidence": "read"
+      },
+      {
+        "title": "Sports Jersey Day",
+        "date": "2026-10-29",
+        "date_confidence": "read"
+      },
+      {
+        "title": "Orange and Black Day",
+        "date": "2026-10-30",
+        "date_confidence": "read"
+      }
+    ],
+    "actions": []
+  },
+  "05-book-fair": {
+    "title": "Fall Book Fair Details",
+    "summary": "Information about the Maple Grove Elementary Fall Book Fair dates and family night.",
+    "kind": "calendar",
+    "nothing_to_do": false,
+    "events": [
+      {
+        "title": "Book Fair",
+        "date": "2026-11-09",
+        "end_date": "2026-11-10",
+        "date_confidence": "read"
+      },
+      {
+        "title": "Family Night",
+        "date": "2026-11-10",
+        "start_time": "17:00",
+        "end_time": "19:00",
+        "date_confidence": "read"
+      }
+    ],
+    "actions": [
+      {
+        "text": "Send money in an envelope with child's name and teacher on the front",
+        "kind": "pay",
+        "due": "2026-11-10",
+        "date_confidence": "guessed"
+      }
+    ]
+  },
+  "06-pizza-night": {
+    "title": "Pizza Night Fundraiser",
+    "summary": "Maple Grove PTO is hosting a Pizza Night fundraiser at Luigi's Pizzeria.",
+    "kind": "flyer",
+    "nothing_to_do": false,
+    "events": [
+      {
+        "title": "Pizza Night",
+        "date": "2026-11-05",
+        "start_time": "17:00",
+        "end_time": "19:00",
+        "date_confidence": "read"
+      }
+    ],
+    "actions": [
+      {
+        "text": "Tell server you are with Maple Grove and 20% of your bill goes to the PTO",
+        "kind": "sign",
+        "due": "2026-11-05",
+        "date_confidence": "guessed"
+      }
+    ]
+  },
+  "07-reading-log": {
+    "title": "My Reading Log",
+    "summary": "Track daily reading with your child and return the log on Friday.",
+    "kind": "form",
+    "nothing_to_do": false,
+    "events": [
+      {
+        "title": "Return reading log",
+        "date": "2026-10-30",
+        "date_confidence": "guessed"
+      }
+    ],
+    "actions": [
+      {
+        "text": "Sign and send this log back to school",
+        "kind": "sign",
+        "due": "2026-10-30",
+        "date_confidence": "guessed"
+      }
+    ]
+  },
+  "08-conferences": {
+    "title": "Parent-Teacher Conference Sign-Up",
+    "summary": "Sign up for parent-teacher conferences on November 12, 2026. Return the form by November 6.",
+    "kind": "form",
+    "nothing_to_do": false,
+    "events": [
+      {
+        "title": "Parent-Teacher Conferences",
+        "date": "2026-11-12",
+        "start_time": "15:30",
+        "end_time": "19:00",
+        "date_confidence": "read"
+      }
+    ],
+    "actions": [
+      {
+        "text": "Return this form",
+        "kind": "return",
+        "due": "2026-11-06",
+        "date_confidence": "guessed"
+      }
+    ]
+  },
+  "09-newsletter": {
+    "title": "Room 14 Kindergarten News",
+    "summary": "Updates from Ms. Rivera's Kindergarten covering letters, math, and class activities.",
+    "kind": "notice",
+    "nothing_to_do": true,
+    "events": [],
+    "actions": []
+  },
+  "10-bake-sale": {
+    "title": "Maple Grove PTO Bake Sale",
+    "summary": "A bake sale is happening on Friday, November 6th to raise money for playground equipment.",
+    "kind": "calendar",
+    "nothing_to_do": false,
+    "events": [
+      {
+        "title": "Bake Sale",
+        "date": "2026-11-06",
+        "location": "Cafeteria",
+        "date_confidence": "read"
+      }
+    ],
+    "actions": [
+      {
+        "text": "Donate baked goods",
+        "kind": "bring",
+        "due": "2026-11-06",
+        "date_confidence": "read"
+      },
+      {
+        "text": "Drop off treats in the front office",
+        "kind": "bring",
+        "due": "2026-11-06",
+        "date_confidence": "read"
+      },
+      {
+        "text": "Bring 2 dozen cookies",
+        "kind": "bring",
+        "due": "2026-11-06",
+        "date_confidence": "read"
+      }
+    ]
+  }
+}
